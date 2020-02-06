@@ -9,6 +9,7 @@ from ssm_parameter_store import EC2ParameterStore
 from collections import OrderedDict
 
 
+
 def create_store():
     """
     Creates a parameter store object from the default AWS credential on the
@@ -46,10 +47,11 @@ def create_store_from_profile(profile='default'):
         Object -- An AWS parameter store object.
     """
     client = boto3.Session(profile_name=profile)
+    credentials = client.get_credentials()
     store = EC2ParameterStore(
-        aws_access_key_id=client.get_credentials().access_key,
-        aws_secret_access_key=client.get_credentials().secret_key,
-        aws_session_token=client._session, # optional
+        aws_access_key_id=credentials.access_key,
+        aws_secret_access_key=credentials.secret_key,
+        #aws_session_token=client._session, # optional
         region_name=client.region_name
     )
     return store
@@ -70,7 +72,7 @@ def create_store_from_creds(access_key, secret_key, region, **kwargs):
     Returns:
         Object -- An AWS parameter store object.
     """
-    session = kwargs.get('sessions') if 'session' in kwargs else ''
+    session = kwargs.get('session') if 'session' in kwargs else ''
     store = EC2ParameterStore(
         aws_access_key_id=access_key,
         aws_secret_access_key=secret_key,
@@ -78,3 +80,21 @@ def create_store_from_creds(access_key, secret_key, region, **kwargs):
         region_name=region
     )
     return store
+
+def get_parameters_from_path(store, paths, **kwargs):
+    """
+    Gets parameters from the specified paths and combines them
+    into one dictionary. Values that are the same WILL be overwritten.
+    
+    Arguments:
+        store {EC2ParameterStore} -- The AWS Parameter Store you wish to use
+        paths {array} -- The paths you wish to get variables from
+    
+    Returns:
+        OrderedDict -- An OrderedDict of all of the value from the parameter store.
+    """
+    params = OrderedDict()
+    for p in paths:
+        temp_parameters = store.get_parameters_with_hierarchy(f"{p}", decrypt=True)
+        params.update(temp_parameters)
+    return params
